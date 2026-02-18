@@ -1,5 +1,5 @@
 import type { Route } from "./+types/home";
-import NavBar from "../components/NavBar.jsx";
+import NavBar from "../components/NavBar.js"
 import { resumes } from "../constants";
 import { use, useEffect } from "react";
 import { usePuterStore } from "~/lib/puter";
