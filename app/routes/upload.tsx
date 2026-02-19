@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { type FormEvent } from 'react'
 import NavBar from "../components/NavBar.js";
 import { useState } from 'react';
 import FileUploader from '~/components/FileUploader.js';
@@ -7,15 +7,13 @@ const upload = () => {
     const [isProcessing, setIsProcessing]
         = useState(false);
     const [statusText, setStatusTesxt] = useState('');
-    const [file ,setFile]=useState()
- const handleFileSelect=()=>{
+    const [file ,setFile]=useState<File| null>()
+ const handleFileSelect=(file:File| null)=>{
 setFile(file)
  }
-    const handlSubmit = (e) => {
-  e.preventDefault();
-  setIsProcessing(true);
-  setStatusTesxt('Analyzing your resume with AI...');
-};
+const handelSubmit: (e:FormEvent<HTMLFormElement>)=> void=(e:FormEvent<HTMLFormElement>)=>{
+
+}
 
     return (
 
@@ -34,7 +32,7 @@ setFile(file)
                     )}
                     {!isProcessing && (
                         <form action="" className='flex flex-col gap-4 mt-8'
-                            id='upload-form' onSubmit={handlSubmit}>
+                            id='upload-form' onSubmit={handelSubmit}>
                             <div className='form-div'>
                                 <label htmlFor='campany-name' >
                                     Compay Name
