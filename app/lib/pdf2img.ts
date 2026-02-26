@@ -1,58 +1,73 @@
+// lib/pdf2img.ts
+import * as pdfjs from 'pdfjs-dist';
+
 export interface PdfConversionResult {
-  imageUrl: string;
+  imageUrl?: string;
   file: File | null;
   error?: string;
-}
-
-let pdfjsLib: any = null;
-let isLoading = false;
-let loadPromise: Promise<any> | null = null;
-
-async function loadPdfJs(): Promise<any> {
-  if (pdfjsLib) return pdfjsLib;
-  if (loadPromise) return loadPromise;
-
-  isLoading = true;
-  loadPromise = import("pdfjs-dist").then((lib) => {
-    // Set the worker source to use local file
-    lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-    pdfjsLib = lib;
-    isLoading = false;
-    return lib;
-  });
-
-  return loadPromise;
 }
 
 export async function convertPdfToImage(
   file: File
 ): Promise<PdfConversionResult> {
   try {
-    const lib = await loadPdfJs();
+    // Check if file is valid
+    if (!file) {
+      return { file: null, error: "No file provided" };
+    }
 
+    if (file.type !== 'application/pdf') {
+      return { file: null, error: `File is not a PDF. Type: ${file.type}` };
+    }
+
+    console.log("PDF.js version:", pdfjs.version);
+    
+    // Set worker to match the installed version (3.11.174)
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+    
+    console.log("Worker set to version 3.11.174");
+
+    console.log("Reading file...");
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
-    const page = await pdf.getPage(1);
+    console.log("File read successfully, size:", arrayBuffer.byteLength);
 
-    const viewport = page.getViewport({ scale: 4 });
+    console.log("Loading PDF document...");
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    console.log("PDF loaded, pages:", pdf.numPages);
+
+    console.log("Getting first page...");
+    const page = await pdf.getPage(1);
+    console.log("Got first page");
+
+    // Set scale for good quality
+    const viewport = page.getViewport({ scale: 2 });
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
+
+    if (!context) {
+      return { file: null, error: "Could not create canvas context" };
+    }
 
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
-    if (context) {
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = "high";
-    }
+    // Fill with white background
+    context.fillStyle = "#FFFFFF";
+    context.fillRect(0, 0, canvas.width, canvas.height);
 
-    await page.render({ canvasContext: context!, viewport }).promise;
+    console.log("Rendering page...");
+    await page.render({ 
+      canvasContext: context, 
+      viewport,
+      background: "white" 
+    }).promise;
+    console.log("Page rendered successfully");
 
+    // Convert canvas to blob
     return new Promise((resolve) => {
       canvas.toBlob(
         (blob) => {
           if (blob) {
-            // Create a File from the blob with the same name as the pdf
             const originalName = file.name.replace(/\.pdf$/i, "");
             const imageFile = new File([blob], `${originalName}.png`, {
               type: "image/png",
@@ -64,21 +79,21 @@ export async function convertPdfToImage(
             });
           } else {
             resolve({
-              imageUrl: "",
               file: null,
-              error: "Failed to create image blob",
+              error: "Failed to create image blob - canvas.toBlob returned null",
             });
           }
         },
         "image/png",
-        1.0
-      ); // Set quality to maximum (1.0)
+        0.95 // Slightly reduce quality for better compatibility
+      );
     });
+    
   } catch (err) {
+    console.error("PDF conversion error details:", err);
     return {
-      imageUrl: "",
       file: null,
-      error: `Failed to convert PDF: ${err}`,
+      error: `Failed to convert PDF: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
